@@ -1,7 +1,7 @@
 include_guard(GLOBAL)
 
-if (NOT TARGET Python::Module)
-  message(FATAL_ERROR "You must invoke 'find_package(Python COMPONENTS Interpreter Development REQUIRED)' prior to including nanobind.")
+if (NOT TARGET Python3::Module)
+  message(FATAL_ERROR "You must invoke 'find_package(Python3 COMPONENTS Interpreter Development REQUIRED)' prior to including nanobind.")
 endif()
 
 # Determine the right suffix for ordinary and stable ABI extensions.
@@ -13,20 +13,20 @@ else()
   set(NB_SUFFIX_EXT "${CMAKE_SHARED_MODULE_SUFFIX}")
 endif()
 
-# Check if FindPython/scikit-build-core defined a SOABI/SOSABI variable
+# Check if FindPython3/scikit-build-core defined a SOABI/SOSABI variable
 if(DEFINED SKBUILD_SOABI)
   set(NB_SOABI "${SKBUILD_SOABI}")
-elseif(DEFINED Python_SOABI)
-  set(NB_SOABI "${Python_SOABI}")
+elseif(DEFINED Python3_SOABI)
+  set(NB_SOABI "${Python3_SOABI}")
 endif()
 
 if(DEFINED SKBUILD_SOSABI)
   set(NB_SOSABI "${SKBUILD_SOSABI}")
-elseif(DEFINED Python_SOSABI)
-  set(NB_SOSABI "${Python_SOSABI}")
+elseif(DEFINED Python3_SOSABI)
+  set(NB_SOSABI "${Python3_SOSABI}")
 endif()
 
-# PyPy sets an invalid SOABI (platform missing), causing older FindPythons to
+# PyPy sets an invalid SOABI (platform missing), causing older FindPython3s to
 # report an incorrect value. Only use it if it looks correct (X-X-X form).
 if(DEFINED NB_SOABI AND "${NB_SOABI}" MATCHES ".+-.+-.+")
   set(NB_SUFFIX ".${NB_SOABI}${NB_SUFFIX_EXT}")
@@ -40,18 +40,18 @@ if(DEFINED NB_SOSABI)
   endif()
 endif()
 
-# If either suffix is missing, call Python to compute it
+# If either suffix is missing, call Python3 to compute it
 if(NOT DEFINED NB_SUFFIX OR NOT DEFINED NB_SUFFIX_S)
-  # Query Python directly to get the right suffix.
+  # Query Python3 directly to get the right suffix.
   execute_process(
-    COMMAND "${Python_EXECUTABLE}" "-c"
+    COMMAND "${Python3_EXECUTABLE}" "-c"
       "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"
     RESULT_VARIABLE NB_SUFFIX_RET
     OUTPUT_VARIABLE EXT_SUFFIX
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
   if(NB_SUFFIX_RET AND NOT NB_SUFFIX_RET EQUAL 0)
-    message(FATAL_ERROR "nanobind: Python sysconfig query to "
+    message(FATAL_ERROR "nanobind: Python3 sysconfig query to "
       "find 'EXT_SUFFIX' property failed!")
   endif()
 
@@ -81,12 +81,12 @@ set(NB_OPT      $<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>> CACHE INTERNAL "")
 set(NB_OPT_SIZE $<OR:$<CONFIG:Release>,$<CONFIG:MinSizeRel>,$<CONFIG:RelWithDebInfo>> CACHE INTERNAL "")
 
 # ---------------------------------------------------------------------------
-# Helper function to handle undefined CPython API symbols on macOS
+# Helper function to handle undefined CPython3 API symbols on macOS
 # ---------------------------------------------------------------------------
 
 function (nanobind_link_options name)
   if (APPLE)
-    if (Python_INTERPRETER_ID STREQUAL "PyPy")
+    if (Python3_INTERPRETER_ID STREQUAL "PyPy")
       set(NB_LINKER_RESPONSE_FILE darwin-ld-pypy.sym)
     else()
       set(NB_LINKER_RESPONSE_FILE darwin-ld-cpython.sym)
@@ -107,11 +107,10 @@ function (nanobind_build_library TARGET_NAME)
   if (TARGET_NAME MATCHES "-static")
     set (TARGET_TYPE STATIC)
   else()
-    set (TARGET_TYPE SHARED)
+    set (TARGET_TYPE MODULE)
   endif()
 
   add_library(${TARGET_NAME} ${TARGET_TYPE}
-    EXCLUDE_FROM_ALL
     ${NB_DIR}/include/nanobind/make_iterator.h
     ${NB_DIR}/include/nanobind/nanobind.h
     ${NB_DIR}/include/nanobind/nb_accessor.h
@@ -196,15 +195,15 @@ function (nanobind_build_library TARGET_NAME)
     # Do not complain about vsnprintf
     target_compile_definitions(${TARGET_NAME} PRIVATE -D_CRT_SECURE_NO_WARNINGS)
   else()
-    # Generally needed to handle type punning in Python code
+    # Generally needed to handle type punning in Python3 code
     target_compile_options(${TARGET_NAME} PRIVATE -fno-strict-aliasing)
   endif()
 
   if (WIN32)
     if (${TARGET_NAME} MATCHES "abi3")
-      target_link_libraries(${TARGET_NAME} PUBLIC Python::SABIModule)
+      target_link_libraries(${TARGET_NAME} PUBLIC Python3::SABIModule)
     else()
-      target_link_libraries(${TARGET_NAME} PUBLIC Python::Module)
+      target_link_libraries(${TARGET_NAME} PUBLIC Python3::Module)
     endif()
   endif()
 
@@ -229,7 +228,7 @@ function (nanobind_build_library TARGET_NAME)
   endif()
 
   target_include_directories(${TARGET_NAME} PUBLIC
-    ${Python_INCLUDE_DIRS}
+    ${Python3_INCLUDE_DIRS}
     ${NB_DIR}/include)
 
   target_compile_features(${TARGET_NAME} PUBLIC cxx_std_17)
@@ -251,7 +250,7 @@ endfunction()
 function(nanobind_disable_stack_protector name)
   if (NOT MSVC)
     # The stack protector affects binding size negatively (+8% on Linux in my
-    # benchmarks). Protecting from stack smashing in a Python VM seems in any
+    # benchmarks). Protecting from stack smashing in a Python3 VM seems in any
     # case futile, so let's get rid of it by default in optimized modes.
     target_compile_options(${name} PRIVATE $<${NB_OPT}:-fno-stack-protector>)
   endif()
@@ -312,10 +311,10 @@ function(nanobind_add_module name)
     set(ARG_NB_STATIC TRUE)
   endif()
 
-  # Stable ABI builds require CPython >= 3.12 and Python::SABIModule
-  if ((Python_VERSION VERSION_LESS 3.12) OR
-      (NOT Python_INTERPRETER_ID STREQUAL "Python") OR
-      (NOT TARGET Python::SABIModule))
+  # Stable ABI builds require CPython3 >= 3.12 and Python3::SABIModule
+  if ((Python3_VERSION VERSION_LESS 3.12) OR
+      (NOT Python3_INTERPRETER_ID STREQUAL "Python3") OR
+      (NOT TARGET Python3::SABIModule))
     set(ARG_STABLE_ABI FALSE)
   endif()
 
@@ -421,9 +420,9 @@ function (nanobind_add_stub name)
     list(APPEND NB_STUBGEN_OUTPUTS "${ARG_OUTPUT}")
   endif()
 
-  file(TO_CMAKE_PATH ${Python_EXECUTABLE} NB_Python_EXECUTABLE)
+  file(TO_CMAKE_PATH ${Python3_EXECUTABLE} NB_Python3_EXECUTABLE)
 
-  set(NB_STUBGEN_CMD "${NB_Python_EXECUTABLE}" "${NB_STUBGEN}" ${NB_STUBGEN_ARGS})
+  set(NB_STUBGEN_CMD "${NB_Python3_EXECUTABLE}" "${NB_STUBGEN}" ${NB_STUBGEN_ARGS})
 
   if (NOT ARG_INSTALL_TIME)
     add_custom_command(
