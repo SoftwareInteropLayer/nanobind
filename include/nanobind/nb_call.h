@@ -7,6 +7,8 @@
     BSD-style license that can be found in the LICENSE file.
 */
 
+#include <vector>
+
 NAMESPACE_BEGIN(NB_NAMESPACE)
 NAMESPACE_BEGIN(detail)
 
@@ -135,6 +137,24 @@ object api<Derived>::operator()(Args &&...args_) const {
 
         NB_DO_VECTORCALL();
     }
+}
+
+template <typename Derived>
+template <rv_policy policy>
+object api<Derived>::vector_call(const object *args_, size_t nargs) const
+{
+    static constexpr bool method_call = false;
+
+    std::vector<PyObject *> args_vec(nargs+1, nullptr);
+
+    for(size_t i = 0; i < nargs; ++i)
+    {
+        args_vec[i+1] = args_[i].inc_ref().ptr();
+    }
+
+    auto *args = args_vec.data();
+    PyObject *kwnames = nullptr;
+    NB_DO_VECTORCALL();
 }
 
 #undef NB_DO_VECTORCALL

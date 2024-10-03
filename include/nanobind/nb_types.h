@@ -129,6 +129,9 @@ public:
               typename... Args>
     object operator()(Args &&...args) const;
 
+    template <rv_policy policy = rv_policy::automatic_reference>
+    object vector_call(const object *args, size_t nargs) const;
+
     NB_DECL_COMP(equal)
     NB_DECL_COMP(not_equal)
     NB_DECL_COMP(operator<)
